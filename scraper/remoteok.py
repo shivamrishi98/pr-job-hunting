@@ -5,8 +5,11 @@ import time
 API_URL = "https://remoteok.com/api"
 
 HEADERS = {
-    "User-Agent": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36",
+    "User-Agent": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36",
     "Accept": "application/json",
+    "Accept-Language": "en-US,en;q=0.9",
+    "Referer": "https://remoteok.com/",
+    "Origin": "https://remoteok.com",
 }
 
 # Role keywords matched against job title and tags
@@ -80,10 +83,18 @@ def _parse_job(raw: dict) -> dict:
 
 def fetch_remoteok_jobs() -> list[dict]:
     time.sleep(1)  # polite delay before hitting the API
-    response = requests.get(API_URL, headers=HEADERS, timeout=15)
-    response.raise_for_status()
-
-    data = response.json()
+    try:
+        response = requests.get(API_URL, headers=HEADERS, timeout=15)
+        response.raise_for_status()
+        data = response.json()
+    except requests.exceptions.HTTPError as e:
+        if e.response.status_code == 403:
+            print("[remoteok] 403 Forbidden — RemoteOK may block cloud IPs (e.g. Render). Skipping.")
+            return []
+        raise
+    except Exception as e:
+        print(f"[remoteok] Request failed: {e}")
+        return []
 
     # First item is metadata (legal/last_updated), not a job listing
     raw_jobs = [item for item in data if isinstance(item, dict) and "id" in item]
